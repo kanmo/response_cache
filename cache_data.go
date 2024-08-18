@@ -3,6 +3,7 @@ package response_cache
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 )
@@ -30,6 +31,7 @@ func Create(methodName string, userId string, idempotencyKey string) *CacheData 
 }
 
 func GenerateCacheKey(keys ...string) string {
+	fmt.Printf("keys: %v\n", strings.Join(keys, ":"))
 	return strings.TrimSpace(strings.Join(keys, ":"))
 }
 

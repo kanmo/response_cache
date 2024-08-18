@@ -53,6 +53,9 @@ func (rc *ResponseCache) GetOrSetCache(
 	if err != nil {
 		return nil, err
 	}
+	if err = rc.redis.Set(ctx, key, &CacheData{Key: key, Value: resp}); err != nil {
+		return nil, err
+	}
 
 	return resp, nil
 }

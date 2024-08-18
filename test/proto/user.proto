@@ -4,6 +4,12 @@ package pb;
 
 option go_package = "github.com/kanmo/response-cache/pb";
 
+message UserRequest {
+  string idempotency_key = 1;
+  string user_id = 2;
+  string user_name = 3;
+}
+
 message UserResponse {
   string user_id = 1;
   string user_name = 2;
