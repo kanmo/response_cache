@@ -103,8 +103,24 @@ func TestGetOrCache(t *testing.T) {
 		assert.NoError(t, err)
 		mockRedis.AssertNotCalled(t, "Set", ctx, key, mock.Anything)
 		mockRedis.AssertNumberOfCalls(t, "Get", 1)
-		fmt.Printf("resp: %+v\n", resp)
 		assert.Equal(t, "test_user_id", resp.(*pb.UserResponse).UserId)
 		assert.Equal(t, "Cached User", resp.(*pb.UserResponse).UserName)
+	})
+
+	t.Run("cache is locked", func(t *testing.T) {
+		mockRedis := new(MockRedisRepository)
+		rc := NewResponseCache(mockRedis)
+
+		mockRedis.On("Get", ctx, key, mock.Anything).
+			Return(nil).Run(func(args mock.Arguments) {
+			if dest, ok := args.Get(2).(*CacheData); ok {
+				dest.Value = LockValue
+			}
+		}).Once()
+
+		_, err := rc.GetOrSetCache(ctx, key, handlerFunc)
+		assert.Error(t, err)
+		mockRedis.AssertNotCalled(t, "Set", ctx, key, mock.Anything)
+		mockRedis.AssertNumberOfCalls(t, "Get", 1)
 	})
 }
