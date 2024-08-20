@@ -26,12 +26,12 @@ func (rc *ResponseCache) GetOrSetCache(
 	key string,
 	handlerFunc func(context.Context, interface{}) (interface{}, error),
 ) (interface{}, error) {
-	var cache *CacheData
+	var cache CacheData
 	if err := rc.redis.Get(ctx, key, &cache); err != nil {
 		return nil, err
 	}
 
-	if cache != nil {
+	if cache.Value != nil {
 		if cache.Value == LockValue {
 			return nil, errors.New("locked")
 		}

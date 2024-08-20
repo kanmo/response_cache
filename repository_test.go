@@ -16,15 +16,6 @@ type MockRedisRepository struct {
 
 func (m *MockRedisRepository) Get(ctx context.Context, key string, value any) error {
 	args := m.Called(ctx, key, value)
-	//if cacheData, ok := args.Get(1).(*CacheData); ok && cacheData != nil {
-	//	*value.(*CacheData) = *cacheData
-	//}
-	//return args.Error(0)
-	if args.Get(0) == nil {
-		if cacheData, ok := value.(*CacheData); ok {
-			cacheData.Value = nil
-		}
-	}
 	return args.Error(0)
 }
 
@@ -44,8 +35,6 @@ func TestGetOrCache(t *testing.T) {
 	userId := "test_user_id"
 	idempotencyKey := "key123"
 
-	mockRedis := new(MockRedisRepository)
-	rc := NewResponseCache(mockRedis)
 	key := GenerateCacheKey(userId, method, idempotencyKey)
 	handlerFunc := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return &pb.UserResponse{
@@ -55,6 +44,9 @@ func TestGetOrCache(t *testing.T) {
 	}
 
 	t.Run("cache does not exist", func(t *testing.T) {
+		mockRedis := new(MockRedisRepository)
+		rc := NewResponseCache(mockRedis)
+
 		mockRedis.On("Get", ctx, key, mock.Anything).
 			Return(nil).Run(func(args mock.Arguments) {
 			if dest, ok := args.Get(2).(*CacheData); ok {
@@ -92,4 +84,27 @@ func TestGetOrCache(t *testing.T) {
 
 	})
 
+	t.Run("cache exists", func(t *testing.T) {
+		mockRedis := new(MockRedisRepository)
+		rc := NewResponseCache(mockRedis)
+
+		cachedResp := &pb.UserResponse{
+			UserId:   userId,
+			UserName: "Cached User",
+		}
+		mockRedis.On("Get", ctx, key, mock.Anything).
+			Return(nil).Run(func(args mock.Arguments) {
+			if dest, ok := args.Get(2).(*CacheData); ok && dest != nil {
+				dest.Value = cachedResp
+			}
+		}).Once()
+
+		resp, err := rc.GetOrSetCache(ctx, key, handlerFunc)
+		assert.NoError(t, err)
+		mockRedis.AssertNotCalled(t, "Set", ctx, key, mock.Anything)
+		mockRedis.AssertNumberOfCalls(t, "Get", 1)
+		fmt.Printf("resp: %+v\n", resp)
+		assert.Equal(t, "test_user_id", resp.(*pb.UserResponse).UserId)
+		assert.Equal(t, "Cached User", resp.(*pb.UserResponse).UserName)
+	})
 }
